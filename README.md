@@ -183,6 +183,34 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
   }'
 ```
 
+Пример красивого ответа:
+
+```json
+{
+  "ok": true,
+  "interface_id": "Wireguard0",
+  "new_name": "test1",
+  "messages": [
+    "\"Wireguard0\": description saved.",
+    "saving (http/rci)."
+  ],
+  "statuses": [
+    {
+      "status": "message",
+      "code": "72155140",
+      "ident": "Network::Interface::Base",
+      "message": "\"Wireguard0\": description saved."
+    },
+    {
+      "status": "message",
+      "code": "8912996",
+      "ident": "Core::System::StartupConfig",
+      "message": "saving (http/rci)."
+    }
+  ]
+}
+```
+
 ## Как переименовать `test` в `test1`
 
 Шаг 1. Получить список интерфейсов и убедиться, что нужный интерфейс найден:

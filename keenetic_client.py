@@ -72,7 +72,8 @@ class KeeneticClient:
         payload: Any | None = None,
     ) -> Any:
         if path and payload is not None:
-            return await self.raw_rci_post(path=path, payload=payload)
+            result = await self.raw_rci_post(path=path, payload=payload)
+            return self._format_rename_result(interface_id=interface_id, new_name=new_name, result=result)
 
         inferred_payload = [
             {
@@ -89,7 +90,8 @@ class KeeneticClient:
                 }
             },
         ]
-        return await self.raw_rci_post(path="/rci/", payload=inferred_payload)
+        result = await self.raw_rci_post(path="/rci/", payload=inferred_payload)
+        return self._format_rename_result(interface_id=interface_id, new_name=new_name, result=result)
 
     @staticmethod
     def _decode_response(response: httpx.Response) -> Any:
@@ -152,3 +154,46 @@ class KeeneticClient:
                 candidate.setdefault("_key", key)
                 candidates.append(candidate)
         return candidates
+
+    @classmethod
+    def _format_rename_result(cls, interface_id: str, new_name: str, result: Any) -> dict[str, Any]:
+        statuses = cls._extract_statuses(result)
+        return {
+            "ok": True,
+            "interface_id": interface_id,
+            "new_name": new_name,
+            "messages": [item["message"] for item in statuses if item.get("message")],
+            "statuses": statuses,
+        }
+
+    @classmethod
+    def _extract_statuses(cls, data: Any) -> list[dict[str, Any]]:
+        statuses: list[dict[str, Any]] = []
+        cls._walk_statuses(data, statuses)
+        return statuses
+
+    @classmethod
+    def _walk_statuses(cls, node: Any, statuses: list[dict[str, Any]]) -> None:
+        if isinstance(node, list):
+            for item in node:
+                cls._walk_statuses(item, statuses)
+            return
+
+        if not isinstance(node, dict):
+            return
+
+        maybe_status = node.get("status")
+        if isinstance(maybe_status, list):
+            for item in maybe_status:
+                if isinstance(item, dict):
+                    statuses.append(
+                        {
+                            "status": item.get("status"),
+                            "code": item.get("code"),
+                            "ident": item.get("ident"),
+                            "message": item.get("message"),
+                        }
+                    )
+
+        for value in node.values():
+            cls._walk_statuses(value, statuses)
