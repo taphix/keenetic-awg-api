@@ -29,3 +29,11 @@ class DeleteInterfaceRequest(KeeneticAuthRequest):
     interface_id: str = Field(..., examples=["Wireguard2"])
     path: str | None = Field(default=None, examples=["/rci/"])
     payload: Any | None = Field(default=None)
+
+
+class CreateInterfaceRequest(KeeneticAuthRequest):
+    config_base64: str = Field(..., examples=["W0ludGVyZmFjZV0KLi4u"])
+    filename: str = Field(..., examples=["Test_Zamena.conf"])
+    name: str = Field(default="", examples=[""])
+    path: str | None = Field(default=None, examples=["/rci/"])
+    payload: Any | None = Field(default=None)

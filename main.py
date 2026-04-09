@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 
 from keenetic_client import KeeneticClient
-from schemas import DeleteInterfaceRequest, RawRciPostRequest, RenameInterfaceRequest, ShowInterfacesRequest
+from schemas import CreateInterfaceRequest, DeleteInterfaceRequest, RawRciPostRequest, RenameInterfaceRequest, ShowInterfacesRequest
 
 
 @asynccontextmanager
@@ -109,6 +109,30 @@ async def delete_interface(request: DeleteInterfaceRequest):
         ) as client:
             return await client.delete_interface(
                 interface_id=request.interface_id,
+                path=request.path,
+                payload=request.payload,
+            )
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=_httpx_error_detail(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/create-interface")
+async def create_interface(request: CreateInterfaceRequest):
+    try:
+        async with KeeneticClient(
+            base_url=request.base_url,
+            login=request.login,
+            password=request.password,
+        ) as client:
+            return await client.create_interface(
+                config_base64=request.config_base64,
+                filename=request.filename,
+                name=request.name,
                 path=request.path,
                 payload=request.payload,
             )

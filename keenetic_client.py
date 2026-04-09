@@ -144,6 +144,34 @@ class KeeneticClient:
         result = await self.raw_rci_post(path="/rci/", payload=inferred_payload)
         return self._format_delete_result(interface_id=interface_id, result=result)
 
+    async def create_interface(
+        self,
+        config_base64: str,
+        filename: str,
+        name: str = "",
+        path: str | None = None,
+        payload: Any | None = None,
+    ) -> Any:
+        if path and payload is not None:
+            result = await self.raw_rci_post(path=path, payload=payload)
+            return self._format_create_result(filename=filename, result=result)
+
+        inferred_payload = [
+            {
+                "interface": {
+                    "wireguard": {
+                        "import": {
+                            "import": config_base64,
+                            "name": name,
+                            "filename": filename,
+                        }
+                    }
+                }
+            }
+        ]
+        result = await self.raw_rci_post(path="/rci/", payload=inferred_payload)
+        return self._format_create_result(filename=filename, result=result)
+
     @staticmethod
     def _decode_response(response: httpx.Response) -> Any:
         content_type = response.headers.get("content-type", "")
@@ -245,6 +273,26 @@ class KeeneticClient:
         }
 
     @classmethod
+    def _format_create_result(cls, filename: str, result: Any) -> dict[str, Any]:
+        statuses = cls._extract_statuses(result)
+        created_interface_id = cls._find_first_value(result, "created")
+        intersects = cls._find_first_value(result, "intersects")
+        message = (
+            f"Interface {created_interface_id} created from {filename}."
+            if created_interface_id
+            else f"Interface imported from {filename}."
+        )
+        return {
+            "ok": True,
+            "action": "create_interface",
+            "filename": filename,
+            "interface_id": created_interface_id,
+            "intersects": intersects,
+            "message": message,
+            "router_messages": cls._extract_messages(statuses),
+        }
+
+    @classmethod
     def _extract_statuses(cls, data: Any) -> list[dict[str, Any]]:
         statuses: list[dict[str, Any]] = []
         cls._walk_statuses(data, statuses)
@@ -287,3 +335,22 @@ class KeeneticClient:
             if "saving (http/rci)" in message:
                 return True
         return False
+
+    @classmethod
+    def _find_first_value(cls, node: Any, key: str) -> Any:
+        if isinstance(node, dict):
+            if key in node:
+                return node[key]
+            for value in node.values():
+                found = cls._find_first_value(value, key)
+                if found is not None:
+                    return found
+            return None
+
+        if isinstance(node, list):
+            for item in node:
+                found = cls._find_first_value(item, key)
+                if found is not None:
+                    return found
+
+        return None

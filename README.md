@@ -8,6 +8,7 @@
 - рабочий `POST /raw-rci-post`
 - рабочий `POST /rename-interface` через подтверждённый `POST /rci/`
 - рабочий `POST /delete-interface` через подтверждённый `POST /rci/`
+- рабочий `POST /create-interface` через подтверждённый `POST /rci/`
 
 ## Файлы
 
@@ -247,6 +248,43 @@ curl -X POST https://testawg.twzrds.ru/delete-interface \
   "router_messages": [
     "interface \"Wireguard2\" removed.",
     "saving (http/rci)."
+  ]
+}
+```
+
+## Create interface
+
+Этот endpoint использует подтверждённый import-вызов:
+
+- `POST /rci/`
+- payload с `interface.wireguard.import`
+- принимает base64 содержимое `.conf`
+
+```bash
+curl -X POST https://testawg.twzrds.ru/create-interface \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_url": "http://192.168.1.1",
+    "login": "admin",
+    "password": "admin_password",
+    "config_base64": "W0ludGVyZmFjZV0KLi4u",
+    "filename": "Test_Zamena.conf",
+    "name": ""
+  }'
+```
+
+Пример ответа:
+
+```json
+{
+  "ok": true,
+  "action": "create_interface",
+  "filename": "Test_Zamena.conf",
+  "interface_id": "Wireguard2",
+  "intersects": "",
+  "message": "Interface Wireguard2 created from Test_Zamena.conf.",
+  "router_messages": [
+    "\"Wireguard2\": imported settings."
   ]
 }
 ```
