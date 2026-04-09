@@ -29,8 +29,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 docker build -t keenetic-api-mvp .
 docker run -d \
   --name keenetic-api-mvp \
-  -p 80:80 \
-  -p 443:443 \
+  -p 8000:8000 \
   keenetic-api-mvp
 ```
 
@@ -40,17 +39,29 @@ docker run -d \
 docker compose up -d --build
 ```
 
+Если на сервере нет Compose plugin, используйте legacy-команду:
+
+```bash
+docker-compose up -d --build
+```
+
 Остановить:
 
 ```bash
 docker compose down
 ```
 
+Или:
+
+```bash
+docker-compose down
+```
+
 Контейнер внутри поднимает:
 
 ```bash
-- FastAPI на 127.0.0.1:8000
-- Caddy на 80/443
+- API-контейнер FastAPI на 8000
+- Caddy-контейнер на 80/443
 - домен: https://testawg.twzrds.ru
 ```
 
@@ -60,6 +71,13 @@ docker compose down
 - DNS A-запись testawg.twzrds.ru должна указывать на ваш сервер
 - порты 80 и 443 должны быть доступны снаружи
 - Caddy хранит сертификаты в docker volume `caddy_data`
+```
+
+Compose поднимает два контейнера:
+
+```bash
+- `api` с FastAPI
+- `caddy` с reverse proxy и TLS
 ```
 
 ## Проверка

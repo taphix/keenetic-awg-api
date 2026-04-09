@@ -1,12 +1,22 @@
 services:
-  keenetic-api:
+  api:
     build: .
     container_name: keenetic-api
     restart: unless-stopped
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    container_name: keenetic-caddy
+    restart: unless-stopped
+    depends_on:
+      - api
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
 
