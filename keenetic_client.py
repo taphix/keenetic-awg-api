@@ -1,0 +1,144 @@
+import hashlib
+from typing import Any
+
+import httpx
+
+
+class KeeneticClient:
+    def __init__(self, base_url: str, login: str, password: str, timeout: float = 10.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.login = login
+        self.password = password
+        self._authed = False
+        self._client = httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=timeout,
+            follow_redirects=True,
+            trust_env=False,
+        )
+
+    async def __aenter__(self) -> "KeeneticClient":
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+    async def auth(self) -> None:
+        if self._authed:
+            return
+
+        response = await self._client.get("/auth")
+        challenge = response.headers.get("X-NDM-Challenge")
+        realm = response.headers.get("X-NDM-Realm")
+
+        if not challenge or not realm:
+            raise RuntimeError("Keenetic auth challenge headers were not returned by GET /auth")
+
+        md5_part = hashlib.md5(f"{self.login}:{realm}:{self.password}".encode("utf-8")).hexdigest()
+        sha_part = hashlib.sha256(f"{challenge}{md5_part}".encode("utf-8")).hexdigest()
+
+        auth_response = await self._client.post(
+            "/auth",
+            json={"login": self.login, "password": sha_part},
+        )
+        auth_response.raise_for_status()
+        self._authed = True
+
+    async def show_interfaces(self) -> Any:
+        await self.auth()
+        response = await self._client.get("/rci/show/interface")
+        response.raise_for_status()
+        return response.json()
+
+    async def list_interfaces(self) -> list[dict[str, Any]]:
+        data = await self.show_interfaces()
+        return self._normalize_interfaces(data)
+
+    async def raw_rci_post(self, path: str, payload: Any) -> Any:
+        await self.auth()
+        normalized_path = path if path.startswith("/") else f"/{path}"
+        response = await self._client.post(normalized_path, json=payload)
+        response.raise_for_status()
+        return self._decode_response(response)
+
+    async def rename_interface(
+        self,
+        interface_id: str,
+        new_name: str,
+        path: str | None = None,
+        payload: Any | None = None,
+    ) -> Any:
+        # TODO: replace this wrapper with the confirmed RCI write path/payload from DevTools.
+        if path and payload is not None:
+            return await self.raw_rci_post(path=path, payload=payload)
+
+        raise NotImplementedError(
+            f"rename_interface is not implemented yet. Need confirmed RCI path/payload for "
+            f"interface_id={interface_id!r}, new_name={new_name!r}. "
+            f"You can pass them into this wrapper once they are known."
+        )
+
+    @staticmethod
+    def _decode_response(response: httpx.Response) -> Any:
+        content_type = response.headers.get("content-type", "")
+        if "application/json" in content_type:
+            return response.json()
+        try:
+            return response.json()
+        except ValueError:
+            return {"status_code": response.status_code, "text": response.text}
+
+    @staticmethod
+    def _normalize_interfaces(data: Any) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+
+        if isinstance(data, list):
+            candidates = [item for item in data if isinstance(item, dict)]
+        elif isinstance(data, dict):
+            nested = data.get("interface") or data.get("interfaces")
+            if isinstance(nested, list):
+                candidates = [item for item in nested if isinstance(item, dict)]
+            elif isinstance(nested, dict):
+                candidates = KeeneticClient._dict_values_to_candidates(nested)
+            else:
+                candidates = KeeneticClient._dict_values_to_candidates(data)
+
+        normalized: list[dict[str, Any]] = []
+        for item in candidates:
+            interface_id = (
+                item.get("id")
+                or item.get("interface_id")
+                or item.get("interface")
+                or item.get("ifname")
+                or item.get("_key")
+            )
+            name = (
+                item.get("name")
+                or item.get("description")
+                or item.get("display_name")
+                or item.get("alias")
+                or item.get("comment")
+            )
+            if interface_id:
+                normalized.append(
+                    {
+                        "interface_id": str(interface_id),
+                        "name": str(name) if name is not None else None,
+                    }
+                )
+
+        normalized.sort(key=lambda item: item["interface_id"])
+        return normalized
+
+    @staticmethod
+    def _dict_values_to_candidates(data: dict[str, Any]) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
+        for key, value in data.items():
+            if isinstance(value, dict):
+                candidate = dict(value)
+                candidate.setdefault("_key", key)
+                candidates.append(candidate)
+        return candidates
