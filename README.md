@@ -6,7 +6,7 @@
 - рабочий `POST /interfaces` c нормализованным списком интерфейсов и их названий
 - рабочий `POST /show-interfaces`
 - рабочий `POST /raw-rci-post`
-- `POST /rename-interface` пока оставлен как честная заглушка до подтверждения точного RCI write payload
+- рабочий `POST /rename-interface` через подтверждённый `POST /rci/`
 
 ## Файлы
 
@@ -143,11 +143,33 @@ curl -X POST https://testawg.twzrds.ru/raw-rci-post \
 
 ## Rename interface
 
-Сейчас endpoint нужен как thin wrapper для rename. Он не выдумывает Keenetic write endpoint.
+Этот endpoint теперь использует подтверждённый из DevTools вызов:
 
-Если точные `path` и `payload` ещё неизвестны, он вернёт `501 Not Implemented`.
+- `POST /rci/`
+- payload с `interface.description`
+- затем `system.configuration.save`
 
-Если точные `path` и `payload` уже известны, их можно передать прямо в этот endpoint, и он вызовет `raw_rci_post(...)`.
+По умолчанию он отправляет минимальный payload такого вида:
+
+```json
+[
+  {
+    "interface": {
+      "description": "test1",
+      "name": "Wireguard0"
+    }
+  },
+  {
+    "system": {
+      "configuration": {
+        "save": {}
+      }
+    }
+  }
+]
+```
+
+При желании можно передать свои `path` и `payload` вручную, тогда endpoint просто прокинет их в `raw_rci_post(...)`.
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/rename-interface \
@@ -157,16 +179,9 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
     "login": "admin",
     "password": "admin_password",
     "interface_id": "Wireguard0",
-    "new_name": "test1",
-    "path": "/rci/CONFIRMED/RENAME/PATH",
-    "payload": {
-      "interface_id": "Wireguard0",
-      "new_name": "test1"
-    }
+    "new_name": "test1"
   }'
 ```
-
-После того как вы снимете точный write path/payload из DevTools, достаточно заменить реализацию `rename_interface()` в `keenetic_client.py` на вызов `raw_rci_post(...)`.
 
 ## Как переименовать `test` в `test1`
 
@@ -201,13 +216,34 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
     "login": "admin",
     "password": "admin_password",
     "interface_id": "Wireguard0",
-    "new_name": "test1",
-    "path": "/rci/CONFIRMED/RENAME/PATH",
-    "payload": {
-      "id": "Wireguard0",
-      "new_name": "test1"
-    }
+    "new_name": "test1"
   }'
 ```
 
-Когда будет известен точный `path/payload`, можно будет сделать `rename_interface()` реальным thin wrapper без изменения остальной архитектуры.
+Если захотите вручную воспроизвести тот же вызов через `raw-rci-post`, это будет так:
+
+```bash
+curl -X POST https://testawg.twzrds.ru/raw-rci-post \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_url": "http://192.168.1.1",
+    "login": "admin",
+    "password": "admin_password",
+    "path": "/rci/",
+    "payload": [
+      {
+        "interface": {
+          "description": "test1",
+          "name": "Wireguard0"
+        }
+      },
+      {
+        "system": {
+          "configuration": {
+            "save": {}
+          }
+        }
+      }
+    ]
+  }'
+```

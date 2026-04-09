@@ -71,15 +71,25 @@ class KeeneticClient:
         path: str | None = None,
         payload: Any | None = None,
     ) -> Any:
-        # TODO: replace this wrapper with the confirmed RCI write path/payload from DevTools.
         if path and payload is not None:
             return await self.raw_rci_post(path=path, payload=payload)
 
-        raise NotImplementedError(
-            f"rename_interface is not implemented yet. Need confirmed RCI path/payload for "
-            f"interface_id={interface_id!r}, new_name={new_name!r}. "
-            f"You can pass them into this wrapper once they are known."
-        )
+        inferred_payload = [
+            {
+                "interface": {
+                    "description": new_name,
+                    "name": interface_id,
+                }
+            },
+            {
+                "system": {
+                    "configuration": {
+                        "save": {}
+                    }
+                }
+            },
+        ]
+        return await self.raw_rci_post(path="/rci/", payload=inferred_payload)
 
     @staticmethod
     def _decode_response(response: httpx.Response) -> Any:
