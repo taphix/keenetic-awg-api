@@ -1,22 +1,29 @@
 # Keenetic API MVP
 
-Минимальный FastAPI-сервис для тестирования Keenetic API:
+Минимальный FastAPI-сервис для управления WireGuard/AWG-интерфейсами Keenetic по API.
 
-- рабочая async-аутентификация через `GET /auth` -> `POST /auth`
-- рабочий `POST /interfaces` c нормализованным списком интерфейсов и их названий
-- рабочий `POST /show-interfaces`
-- рабочий `POST /raw-rci-post`
-- рабочий `POST /rename-interface` через подтверждённый `POST /rci/`
-- рабочий `POST /delete-interface` через подтверждённый `POST /rci/`
-- рабочий `POST /create-interface` через подтверждённый `POST /rci/`
+Что умеет:
+- async-аутентификация через `GET /auth` -> `POST /auth`
+- `POST /interfaces` - список только WireGuard-интерфейсов
+- `POST /show-interfaces` - сырой ответ `GET /rci/show/interface`
+- `POST /raw-rci-post` - сырой `POST` в `/rci/...`
+- `POST /create-interface` - импорт `.conf`
+- `POST /rename-interface` - смена имени интерфейса
+- `POST /delete-interface` - удаление интерфейса
+
+Используется только:
+- FastAPI
+- httpx
+- pydantic
 
 ## Файлы
 
 - `main.py` - FastAPI endpoints
 - `keenetic_client.py` - async клиент Keenetic
-- `schemas.py` - pydantic модели запросов
+- `schemas.py` - pydantic модели
+- `compose.yaml` - `api` + `caddy`
 
-## Установка
+## Локальный запуск
 
 ```bash
 python3.12 -m venv .venv
@@ -25,62 +32,21 @@ pip install -r requirements.txt
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
-## Docker
-
-```bash
-docker build -t keenetic-api-mvp .
-docker run -d \
-  --name keenetic-api-mvp \
-  -p 8000:8000 \
-  keenetic-api-mvp
-```
-
 ## Docker Compose
 
 ```bash
 docker compose up -d --build
-```
-
-Если на сервере нет Compose plugin, используйте legacy-команду:
-
-```bash
-docker-compose up -d --build
-```
-
-Остановить:
-
-```bash
 docker compose down
 ```
 
-Или:
+Стек поднимает:
+- `api` на `8000`
+- `caddy` на `80/443`
+- домен `https://testawg.twzrds.ru`
 
-```bash
-docker-compose down
-```
-
-Контейнер внутри поднимает:
-
-```bash
-- API-контейнер FastAPI на 8000
-- Caddy-контейнер на 80/443
-- домен: https://testawg.twzrds.ru
-```
-
-Важно для TLS:
-
-```bash
-- DNS A-запись testawg.twzrds.ru должна указывать на ваш сервер
-- порты 80 и 443 должны быть доступны снаружи
-- Caddy хранит сертификаты в docker volume `caddy_data`
-```
-
-Compose поднимает два контейнера:
-
-```bash
-- `api` с FastAPI
-- `caddy` с reverse proxy и TLS
-```
+Для TLS нужно:
+- DNS `A`-запись `testawg.twzrds.ru` на IP сервера
+- открытые `80` и `443`
 
 ## Проверка
 
@@ -88,9 +54,7 @@ Compose поднимает два контейнера:
 curl https://testawg.twzrds.ru/health
 ```
 
-## Список интерфейсов и названий
-
-Этот endpoint логинится в Keenetic, делает `GET /rci/show/interface` и возвращает только WireGuard-интерфейсы:
+## Список WG интерфейсов
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/interfaces \
@@ -129,7 +93,7 @@ curl -X POST https://testawg.twzrds.ru/interfaces \
 }
 ```
 
-## Raw show interfaces
+## Сырой show interfaces
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/show-interfaces \
@@ -150,42 +114,12 @@ curl -X POST https://testawg.twzrds.ru/raw-rci-post \
     "base_url": "http://192.168.1.1",
     "login": "admin",
     "password": "admin_password",
-    "path": "/rci/some/path",
-    "payload": {
-      "example": "value"
-    }
+    "path": "/rci/",
+    "payload": []
   }'
 ```
 
-## Rename interface
-
-Этот endpoint теперь использует подтверждённый из DevTools вызов:
-
-- `POST /rci/`
-- payload с `interface.description`
-- затем `system.configuration.save`
-
-По умолчанию он отправляет минимальный payload такого вида:
-
-```json
-[
-  {
-    "interface": {
-      "description": "test1",
-      "name": "Wireguard0"
-    }
-  },
-  {
-    "system": {
-      "configuration": {
-        "save": {}
-      }
-    }
-  }
-]
-```
-
-При желании можно передать свои `path` и `payload` вручную, тогда endpoint просто прокинет их в `raw_rci_post(...)`.
+## Переименовать интерфейс
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/rename-interface \
@@ -199,7 +133,7 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
   }'
 ```
 
-Пример красивого ответа:
+Пример ответа:
 
 ```json
 {
@@ -216,13 +150,7 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
 }
 ```
 
-## Delete interface
-
-Этот endpoint использует подтверждённый вызов удаления:
-
-- `POST /rci/`
-- payload с `{"interface": {"name": "...", "no": true}}`
-- затем `system.configuration.save`
+## Удалить интерфейс
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/delete-interface \
@@ -252,25 +180,27 @@ curl -X POST https://testawg.twzrds.ru/delete-interface \
 }
 ```
 
-## Create interface
+## Создать интерфейс из `.conf`
 
-Этот endpoint использует подтверждённый import-вызов:
+Сначала кодируем локальный файл в base64:
 
-- `POST /rci/`
-- payload с `interface.wireguard.import`
-- принимает base64 содержимое `.conf`
+```bash
+CONFIG_BASE64=$(base64 < Test_Zamena.conf | tr -d '\n')
+```
+
+Потом вызываем API:
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/create-interface \
   -H "Content-Type: application/json" \
-  -d '{
-    "base_url": "http://192.168.1.1",
-    "login": "admin",
-    "password": "admin_password",
-    "config_base64": "W0ludGVyZmFjZV0KLi4u",
-    "filename": "Test_Zamena.conf",
-    "name": ""
-  }'
+  -d "{
+    \"base_url\": \"http://192.168.1.1\",
+    \"login\": \"admin\",
+    \"password\": \"admin_password\",
+    \"config_base64\": \"$CONFIG_BASE64\",
+    \"filename\": \"Test_Zamena.conf\",
+    \"name\": \"\"
+  }"
 ```
 
 Пример ответа:
@@ -289,67 +219,8 @@ curl -X POST https://testawg.twzrds.ru/create-interface \
 }
 ```
 
-## Как переименовать `test` в `test1`
+## Примечания
 
-Шаг 1. Получить список интерфейсов и убедиться, что нужный интерфейс найден:
-
-```bash
-curl -X POST https://testawg.twzrds.ru/interfaces \
-  -H "Content-Type: application/json" \
-  -d '{
-    "base_url": "http://192.168.1.1",
-    "login": "admin",
-    "password": "admin_password"
-  }'
-```
-
-Шаг 2. Найти, например:
-
-```json
-{
-  "interface_id": "Wireguard0",
-  "name": "test"
-}
-```
-
-Шаг 3. Когда точный Keenetic rename `path/payload` будет известен, вызвать:
-
-```bash
-curl -X POST https://testawg.twzrds.ru/rename-interface \
-  -H "Content-Type: application/json" \
-  -d '{
-    "base_url": "http://192.168.1.1",
-    "login": "admin",
-    "password": "admin_password",
-    "interface_id": "Wireguard0",
-    "new_name": "test1"
-  }'
-```
-
-Если захотите вручную воспроизвести тот же вызов через `raw-rci-post`, это будет так:
-
-```bash
-curl -X POST https://testawg.twzrds.ru/raw-rci-post \
-  -H "Content-Type: application/json" \
-  -d '{
-    "base_url": "http://192.168.1.1",
-    "login": "admin",
-    "password": "admin_password",
-    "path": "/rci/",
-    "payload": [
-      {
-        "interface": {
-          "description": "test1",
-          "name": "Wireguard0"
-        }
-      },
-      {
-        "system": {
-          "configuration": {
-            "save": {}
-          }
-        }
-      }
-    ]
-  }'
-```
+- `raw-rci-post` оставлен для отладки и экспериментов с Keenetic RCI
+- все запросы к Keenetic идут через `httpx.AsyncClient`
+- сервис не использует БД, Docker Compose orchestration, кроме `api + caddy`, и не хранит состояние
