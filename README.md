@@ -89,7 +89,7 @@ curl https://testawg.twzrds.ru/health
 
 ## Список интерфейсов и названий
 
-Этот endpoint логинится в Keenetic, делает `GET /rci/show/interface` и возвращает удобный список:
+Этот endpoint логинится в Keenetic, делает `GET /rci/show/interface` и возвращает только WireGuard-интерфейсы:
 
 ```bash
 curl -X POST https://testawg.twzrds.ru/interfaces \
@@ -105,10 +105,24 @@ curl -X POST https://testawg.twzrds.ru/interfaces \
 
 ```json
 {
+  "kind": "wireguard",
+  "total": 2,
+  "named_total": 2,
+  "unnamed_total": 0,
   "interfaces": [
     {
       "interface_id": "Wireguard0",
-      "name": "test"
+      "name": "test",
+      "display_name": "test",
+      "has_name": true,
+      "kind": "wireguard"
+    },
+    {
+      "interface_id": "Wireguard1",
+      "name": "TestAWG",
+      "display_name": "TestAWG",
+      "has_name": true,
+      "kind": "wireguard"
     }
   ]
 }

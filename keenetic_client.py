@@ -57,6 +57,29 @@ class KeeneticClient:
         data = await self.show_interfaces()
         return self._normalize_interfaces(data)
 
+    async def list_wireguard_interfaces(self) -> dict[str, Any]:
+        interfaces = await self.list_interfaces()
+        wireguard_interfaces = []
+        for item in interfaces:
+            if self._infer_interface_kind(item["interface_id"]) != "wireguard":
+                continue
+            wireguard_interfaces.append(
+                {
+                    **item,
+                    "display_name": item["name"] or item["interface_id"],
+                    "has_name": item["name"] is not None,
+                    "kind": "wireguard",
+                }
+            )
+
+        return {
+            "kind": "wireguard",
+            "total": len(wireguard_interfaces),
+            "named_total": sum(1 for item in wireguard_interfaces if item["name"] is not None),
+            "unnamed_total": sum(1 for item in wireguard_interfaces if item["name"] is None),
+            "interfaces": wireguard_interfaces,
+        }
+
     async def raw_rci_post(self, path: str, payload: Any) -> Any:
         await self.auth()
         normalized_path = path if path.startswith("/") else f"/{path}"
@@ -182,6 +205,18 @@ class KeeneticClient:
                 candidate.setdefault("_key", key)
                 candidates.append(candidate)
         return candidates
+
+    @staticmethod
+    def _infer_interface_kind(interface_id: str) -> str:
+        if interface_id.startswith("Wireguard"):
+            return "wireguard"
+        if interface_id.startswith("Bridge"):
+            return "bridge"
+        if interface_id.startswith("FastEthernet"):
+            return "ethernet"
+        if interface_id.startswith("WifiMaster"):
+            return "wifi"
+        return "other"
 
     @classmethod
     def _format_rename_result(cls, interface_id: str, new_name: str, result: Any) -> dict[str, Any]:

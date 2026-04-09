@@ -46,7 +46,7 @@ async def list_interfaces(request: ShowInterfacesRequest):
             login=request.login,
             password=request.password,
         ) as client:
-            return {"interfaces": await client.list_interfaces()}
+            return await client.list_wireguard_interfaces()
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,
