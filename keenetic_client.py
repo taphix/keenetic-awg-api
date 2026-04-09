@@ -223,10 +223,12 @@ class KeeneticClient:
         statuses = cls._extract_statuses(result)
         return {
             "ok": True,
+            "action": "rename_interface",
             "interface_id": interface_id,
             "new_name": new_name,
-            "messages": [item["message"] for item in statuses if item.get("message")],
-            "statuses": statuses,
+            "saved": cls._has_saved_status(statuses),
+            "message": f"Interface {interface_id} renamed to {new_name}.",
+            "router_messages": cls._extract_messages(statuses),
         }
 
     @classmethod
@@ -234,10 +236,12 @@ class KeeneticClient:
         statuses = cls._extract_statuses(result)
         return {
             "ok": True,
+            "action": "delete_interface",
             "interface_id": interface_id,
             "deleted": True,
-            "messages": [item["message"] for item in statuses if item.get("message")],
-            "statuses": statuses,
+            "saved": cls._has_saved_status(statuses),
+            "message": f"Interface {interface_id} deleted.",
+            "router_messages": cls._extract_messages(statuses),
         }
 
     @classmethod
@@ -271,3 +275,15 @@ class KeeneticClient:
 
         for value in node.values():
             cls._walk_statuses(value, statuses)
+
+    @staticmethod
+    def _extract_messages(statuses: list[dict[str, Any]]) -> list[str]:
+        return [item["message"] for item in statuses if item.get("message")]
+
+    @staticmethod
+    def _has_saved_status(statuses: list[dict[str, Any]]) -> bool:
+        for item in statuses:
+            message = str(item.get("message") or "").lower()
+            if "saving (http/rci)" in message:
+                return True
+        return False

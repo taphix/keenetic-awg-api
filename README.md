@@ -203,25 +203,14 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
 ```json
 {
   "ok": true,
+  "action": "rename_interface",
   "interface_id": "Wireguard0",
   "new_name": "test1",
-  "messages": [
+  "saved": true,
+  "message": "Interface Wireguard0 renamed to test1.",
+  "router_messages": [
     "\"Wireguard0\": description saved.",
     "saving (http/rci)."
-  ],
-  "statuses": [
-    {
-      "status": "message",
-      "code": "72155140",
-      "ident": "Network::Interface::Base",
-      "message": "\"Wireguard0\": description saved."
-    },
-    {
-      "status": "message",
-      "code": "8912996",
-      "ident": "Core::System::StartupConfig",
-      "message": "saving (http/rci)."
-    }
   ]
 }
 ```
@@ -250,25 +239,14 @@ curl -X POST https://testawg.twzrds.ru/delete-interface \
 ```json
 {
   "ok": true,
+  "action": "delete_interface",
   "interface_id": "Wireguard2",
   "deleted": true,
-  "messages": [
+  "saved": true,
+  "message": "Interface Wireguard2 deleted.",
+  "router_messages": [
     "interface \"Wireguard2\" removed.",
     "saving (http/rci)."
-  ],
-  "statuses": [
-    {
-      "status": "message",
-      "code": "6553605",
-      "ident": "Network::Interface::Repository",
-      "message": "interface \"Wireguard2\" removed."
-    },
-    {
-      "status": "message",
-      "code": "8912996",
-      "ident": "Core::System::StartupConfig",
-      "message": "saving (http/rci)."
-    }
   ]
 }
 ```
