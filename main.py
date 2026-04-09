@@ -4,7 +4,7 @@ import httpx
 from fastapi import FastAPI, HTTPException
 
 from keenetic_client import KeeneticClient
-from schemas import RawRciPostRequest, RenameInterfaceRequest, ShowInterfacesRequest
+from schemas import DeleteInterfaceRequest, RawRciPostRequest, RenameInterfaceRequest, ShowInterfacesRequest
 
 
 @asynccontextmanager
@@ -90,6 +90,28 @@ async def rename_interface(request: RenameInterfaceRequest):
             )
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=_httpx_error_detail(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/delete-interface")
+async def delete_interface(request: DeleteInterfaceRequest):
+    try:
+        async with KeeneticClient(
+            base_url=request.base_url,
+            login=request.login,
+            password=request.password,
+        ) as client:
+            return await client.delete_interface(
+                interface_id=request.interface_id,
+                path=request.path,
+                payload=request.payload,
+            )
     except httpx.HTTPStatusError as exc:
         raise HTTPException(
             status_code=exc.response.status_code,

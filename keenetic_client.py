@@ -93,6 +93,34 @@ class KeeneticClient:
         result = await self.raw_rci_post(path="/rci/", payload=inferred_payload)
         return self._format_rename_result(interface_id=interface_id, new_name=new_name, result=result)
 
+    async def delete_interface(
+        self,
+        interface_id: str,
+        path: str | None = None,
+        payload: Any | None = None,
+    ) -> Any:
+        if path and payload is not None:
+            result = await self.raw_rci_post(path=path, payload=payload)
+            return self._format_delete_result(interface_id=interface_id, result=result)
+
+        inferred_payload = [
+            {
+                "interface": {
+                    "name": interface_id,
+                    "no": True,
+                }
+            },
+            {
+                "system": {
+                    "configuration": {
+                        "save": {}
+                    }
+                }
+            },
+        ]
+        result = await self.raw_rci_post(path="/rci/", payload=inferred_payload)
+        return self._format_delete_result(interface_id=interface_id, result=result)
+
     @staticmethod
     def _decode_response(response: httpx.Response) -> Any:
         content_type = response.headers.get("content-type", "")
@@ -162,6 +190,17 @@ class KeeneticClient:
             "ok": True,
             "interface_id": interface_id,
             "new_name": new_name,
+            "messages": [item["message"] for item in statuses if item.get("message")],
+            "statuses": statuses,
+        }
+
+    @classmethod
+    def _format_delete_result(cls, interface_id: str, result: Any) -> dict[str, Any]:
+        statuses = cls._extract_statuses(result)
+        return {
+            "ok": True,
+            "interface_id": interface_id,
+            "deleted": True,
             "messages": [item["message"] for item in statuses if item.get("message")],
             "statuses": statuses,
         }

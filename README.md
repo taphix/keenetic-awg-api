@@ -7,6 +7,7 @@
 - рабочий `POST /show-interfaces`
 - рабочий `POST /raw-rci-post`
 - рабочий `POST /rename-interface` через подтверждённый `POST /rci/`
+- рабочий `POST /delete-interface` через подтверждённый `POST /rci/`
 
 ## Файлы
 
@@ -200,6 +201,53 @@ curl -X POST https://testawg.twzrds.ru/rename-interface \
       "code": "72155140",
       "ident": "Network::Interface::Base",
       "message": "\"Wireguard0\": description saved."
+    },
+    {
+      "status": "message",
+      "code": "8912996",
+      "ident": "Core::System::StartupConfig",
+      "message": "saving (http/rci)."
+    }
+  ]
+}
+```
+
+## Delete interface
+
+Этот endpoint использует подтверждённый вызов удаления:
+
+- `POST /rci/`
+- payload с `{"interface": {"name": "...", "no": true}}`
+- затем `system.configuration.save`
+
+```bash
+curl -X POST https://testawg.twzrds.ru/delete-interface \
+  -H "Content-Type: application/json" \
+  -d '{
+    "base_url": "http://192.168.1.1",
+    "login": "admin",
+    "password": "admin_password",
+    "interface_id": "Wireguard2"
+  }'
+```
+
+Пример ответа:
+
+```json
+{
+  "ok": true,
+  "interface_id": "Wireguard2",
+  "deleted": true,
+  "messages": [
+    "interface \"Wireguard2\" removed.",
+    "saving (http/rci)."
+  ],
+  "statuses": [
+    {
+      "status": "message",
+      "code": "6553605",
+      "ident": "Network::Interface::Repository",
+      "message": "interface \"Wireguard2\" removed."
     },
     {
       "status": "message",

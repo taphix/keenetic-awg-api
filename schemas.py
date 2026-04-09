@@ -23,3 +23,9 @@ class RenameInterfaceRequest(KeeneticAuthRequest):
     new_name: str = Field(..., examples=["test1"])
     path: str | None = Field(default=None, examples=["/rci/confirmed/rename/path"])
     payload: Any | None = Field(default=None)
+
+
+class DeleteInterfaceRequest(KeeneticAuthRequest):
+    interface_id: str = Field(..., examples=["Wireguard2"])
+    path: str | None = Field(default=None, examples=["/rci/"])
+    payload: Any | None = Field(default=None)
